@@ -31,9 +31,16 @@ derive_key_hex() {
   printf "%s" "$PASSWORD" | openssl dgst -sha256 -binary | xxd -p -c 256
 }
 
+is_encrypted() {
+  local val="$1"
+  printf '%s' "$val" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$' && \
+  printf '%s' "$val" | grep -qE '[+/=]' && \
+  [ ${#val} -gt 10 ]
+}
+
 decrypt_val() {
   local val="$1"
-  printf '%s' "$val" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$' || { printf '%s' "$val"; return 0; }
+  is_encrypted "$val" || { printf '%s' "$val"; return 0; }
   local decoded key_hex iv_hex out
   decoded=$(printf '%s' "$val" | base64 -d 2>/dev/null) || { printf '%s' "$val"; return 0; }
   key_hex="$(derive_key_hex)"
@@ -45,25 +52,24 @@ decrypt_val() {
 
 # MAIN
 echo ""
-echo "  RWANDA FULL DECRYPTOR v3.0"
+echo "  RWANDA FULL DECRYPTOR v4.0"
 echo "  $(date '+%Y-%m-%d %H:%M:%S %Z')"
-echo "  V2RAY + WG + PAYLOAD + SNI → 100% DECRYPTED"
+echo "  ALL FIELDS DECRYPTED → NO FILTER LOSS"
 echo ""
 
 MOODL_FILE="$(find_moodl_file "$ARG")"
 [ -z "$MOODL_FILE" ] || [ ! -f "$MOODL_FILE" ] && {
   echo "Error: moodlMSY.txt not found!"
-  echo "Place it in Download or use:"
-  echo "  ./msy-decryptor.sh /path/to/moodlMSY.txt"
+  echo "Use: $0 /path/to/moodlMSY.txt"
   exit 1
 }
 
 echo "Found: $MOODL_FILE"
 echo "Decrypting → $OUT"
 
+# Extract ALL key-value pairs, decrypt ALL encrypted ones
 tr -d '\0' < "$MOODL_FILE" | \
-  perl -0777 -ne 'while(/"([^"]+)"\s*:\s*"([^"]*)"/g){ print "$1\t$2\n" }' | \
-  grep -E $'\t.*=+$' > .pairs.txt
+  perl -0777 -ne 'while(/"([^"]+)"\s*:\s*"([^"]*)"/g){ print "$1\t$2\n" }' > .pairs.txt
 
 cat > "$OUT" <<JSONEOF
 {
@@ -127,7 +133,7 @@ rm -f .pairs.txt
 
 echo ""
 echo "RWANDA WINS! FULLY DECRYPTED → $OUT"
-echo "V2RAY JSON, WG, PAYLOAD, SNI → CLEAN"
+echo "100+ SERVERS | V2RAY | WG | SNI | PAYLOAD"
 echo "Saved: $(pwd)/$OUT"
 echo "Connect: 154.26.139.81 | msyfree | msyfree | msyfree.com"
 EOF
