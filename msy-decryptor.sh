@@ -1,3 +1,4 @@
+cat > msy-decryptor.sh <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -32,19 +33,13 @@ derive_key_hex() {
 
 decrypt_val() {
   local val="$1"
-  # Only process if it's valid Base64 ending with =
   printf '%s' "$val" | grep -Eq '^[A-Za-z0-9+/]+={0,2}$' || { printf '%s' "$val"; return 0; }
-
   local decoded key_hex iv_hex out
   decoded=$(printf '%s' "$val" | base64 -d 2>/dev/null) || { printf '%s' "$val"; return 0; }
   key_hex="$(derive_key_hex)"
   iv_hex="$IV"
-
-  # Try decryption with padding removal
   out=$(printf '%s' "$decoded" | openssl enc -aes-256-cbc -d -K "$key_hex" -iv "$iv_hex" -nopad 2>/dev/null || true)
   [ -n "$out" ] || { printf '%s' "$val"; return 0; }
-
-  # Strip PKCS#7 padding + nulls + non-printable
   printf '%s' "$out" | perl -pe 's/[\x01-\x10].*$//s; s/[\x00-\x1F\x7F-\xFF]//g'
 }
 
@@ -58,19 +53,19 @@ echo ""
 MOODL_FILE="$(find_moodl_file "$ARG")"
 [ -z "$MOODL_FILE" ] || [ ! -f "$MOODL_FILE" ] && {
   echo "Error: moodlMSY.txt not found!"
-  echo "Usage: $0 [path] [output.json]"
+  echo "Place it in Download or use:"
+  echo "  ./msy-decryptor.sh /path/to/moodlMSY.txt"
   exit 1
 }
 
 echo "Found: $MOODL_FILE"
 echo "Decrypting → $OUT"
 
-# Extract ALL "key":"value" pairs (even multi-line), filter encrypted only
 tr -d '\0' < "$MOODL_FILE" | \
   perl -0777 -ne 'while(/"([^"]+)"\s*:\s*"([^"]*)"/g){ print "$1\t$2\n" }' | \
   grep -E $'\t.*=+$' > .pairs.txt
 
-cat > "$OUT" <<EOF
+cat > "$OUT" <<JSONEOF
 {
   "Version": "1.0",
   "Country": "RWANDA",
@@ -85,7 +80,7 @@ cat > "$OUT" <<EOF
     "UDP": 7300
   },
   "Servers": [
-EOF
+JSONEOF
 
 server_open=false
 while IFS=$'\t' read -r key val; do
@@ -100,7 +95,6 @@ while IFS=$'\t' read -r key val; do
   fi
   [ "$server_open" != true ] && continue
 
-  # Map keys
   case "$key" in
     SSHHost|WebServer)            k="Host" ;;
     Username|WebUser|DNSUsername) k="User" ;;
@@ -114,7 +108,6 @@ while IFS=$'\t' read -r key val; do
     *)                            k="$key" ;;
   esac
 
-  # Special handling for numbers
   if [ "$k" = "SSL" ] || [ "$k" = "Proxy" ]; then
     num=$(printf '%s' "$dec" | tr -cd '0-9')
     [ -n "$num" ] && printf '      "%s": %s,\n' "$k" "$num" >> "$OUT" || \
@@ -127,7 +120,6 @@ done < .pairs.txt
 [ "$server_open" = true ] && printf '    }\n' >> "$OUT"
 printf '  ]\n}\n' >> "$OUT"
 
-# Fix trailing commas
 sed -i '$ s/,$//' "$OUT"
 sed -i '/},$/ s/,$//' "$OUT"
 
