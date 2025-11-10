@@ -1,8 +1,8 @@
-cat > msy-decryptor.sh <<'EOF'
 #!/bin/bash
 # ========================================
 # MSY VPN DECRYPTOR - RWANDA EDITION
 # GitHub: https://github.com/MullaDev/decrypt-all-app
+# Works with file in ANY folder (Download, DCIM, etc.)
 # Password: UPDATE BELOW WHEN CHANGED
 # ========================================
 
@@ -40,23 +40,44 @@ echo "        Current Time: $(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo "        Country: RWANDA"
 echo ""
 
-if [ -z "$1" ]; then
-  echo "Usage: ./msy-decryptor.sh <config.msy> [output.json]"
-  echo "Example: ./msy-decryptor.sh moodlMSY.txt myconfig.json"
+# === AUTO FIND moodlMSY.txt IN ANY FOLDER ===
+FILE=""
+SEARCH_PATHS=(
+  "$HOME/storage/shared/Download"
+  "$HOME/storage/shared/Documents"
+  "$HOME/storage/shared/DCIM"
+  "$HOME/storage/shared"
+  "$HOME"
+)
+
+for path in "${SEARCH_PATHS[@]}"; do
+  if [ -f "$path/moodlMSY.txt" ]; then
+    FILE="$path/moodlMSY.txt"
+    break
+  fi
+done
+
+# If not found, ask user
+if [ -z "$FILE" ] && [ -n "$1" ]; then
+  FILE="$1"
+elif [ -z "$FILE" ]; then
+  echo "Searching for moodlMSY.txt..."
+  FILE=$(find "$HOME/storage/shared" -name "moodlMSY.txt" -type f 2>/dev/null | head -1)
+fi
+
+if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
+  echo "Error: moodlMSY.txt not found!"
+  echo "   → Put it in Download, Documents, or any folder"
+  echo "   → Or run: ./msy-decryptor.sh /path/to/moodlMSY.txt"
   exit 1
 fi
 
-FILE="$1"
 OUT="${2:-decrypted_msy.json}"
 
-if [ ! -f "$FILE" ]; then
-  echo "Error: File '$FILE' not found!"
-  exit 1
-fi
+echo "Found: $FILE"
+echo "Decrypting → $OUT"
 
-echo "Decrypting: $FILE → $OUT"
-
-# FIX: Read full lines, join Base64, extract properly
+# === DECRYPTION (Handles line-wrapped Base64) ===
 tr -d '\n\r' < "$FILE" | grep -o '"[^"]*":"[^"]*"' | grep -E '=+$' | sed 's/":"/\t/g; s/"//g' > .msy_temp.txt
 
 decrypt() {
@@ -108,5 +129,5 @@ echo "}" >> "$OUT"
 rm .msy_temp.txt
 echo ""
 echo "RWANDA WINS! FULLY DECRYPTED → $OUT"
-echo "Import & Connect to: 154.26.139.81 | msyfree | msyfree | msyfree.com"
-EOF
+echo "File saved in: $(pwd)"
+echo "Import & Connect: 154.26.139.81 | msyfree | msyfree | msyfree.com"
