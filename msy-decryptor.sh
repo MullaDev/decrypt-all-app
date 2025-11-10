@@ -1,7 +1,8 @@
+cat > msy-decryptor.sh <<'EOF'
 #!/bin/bash
 # ========================================
 # MSY VPN DECRYPTOR - RWANDA EDITION
-# GitHub: https://github.com/yourusername/msy-vpn-decryptor
+# GitHub: https://github.com/MullaDev/decrypt-all-app
 # Password: UPDATE BELOW WHEN CHANGED
 # ========================================
 
@@ -11,20 +12,6 @@ PASSWORD="HexXVPNPass"  # CHANGE THIS LINE WHEN PASSWORD UPDATES
 KEY=$(printf "$PASSWORD" | openssl dgst -sha256 -binary | xxd -p -c 256)
 
 # ========================================
-# ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗    ██████╗ ██╗   ██╗
-# ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝    ██╔══██╗╚██╗ ██╔╝
-# ███████╗██║     ██████╔╝██║██████╔╝   ██║       ██████╔╝ ╚████╔╝ 
-# ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║       ██╔══██╗  ╚██╔╝  
-# ███████║╚██████╗██║  ██║██║██║        ██║       ██║  ██║   ██║   
-# ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝       ╚═╝  ╚═╝   ╚═╝   
-#
-# ██████╗ ██╗   ██╗    @MullaRDevZ
-# ██╔══██╗╚██╗ ██╔╝    @MullaRDevZ
-# ██████╔╝ ╚████╔╝     @MullaRDevZ
-# ██╔══██╗  ╚██╔╝      @MullaRDevZ
-# ██████╔╝   ██║       @MullaRDevZ
-# ╚═════╝    ╚═╝       @MullaRDevZ
-#
 # ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗    ██████╗ ██╗   ██╗
 # ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝    ██╔══██╗╚██╗ ██╔╝
 # ███████╗██║     ██████╔╝██║██████╔╝   ██║       ██████╔╝ ╚████╔╝ 
@@ -69,7 +56,8 @@ fi
 
 echo "Decrypting: $FILE → $OUT"
 
-grep -o '"[^"]*":[^,]*' "$FILE" | grep -E '=+$' | cut -d'"' -f2,4 > .msy_temp.txt
+# FIX: Read full lines, join Base64, extract properly
+tr -d '\n\r' < "$FILE" | grep -o '"[^"]*":"[^"]*"' | grep -E '=+$' | sed 's/":"/\t/g; s/"//g' > .msy_temp.txt
 
 decrypt() {
   printf "$1" | base64 -d 2>/dev/null | \
@@ -93,7 +81,7 @@ echo "  }," >> "$OUT"
 echo "  \"Servers\": [" >> "$OUT"
 
 server_count=0
-while IFS=: read key enc; do
+while IFS=$'\t' read key enc; do
   dec=$(decrypt "$enc")
   [ -z "$dec" ] && dec="msyfree.com"
 
@@ -121,3 +109,4 @@ rm .msy_temp.txt
 echo ""
 echo "RWANDA WINS! FULLY DECRYPTED → $OUT"
 echo "Import & Connect to: 154.26.139.81 | msyfree | msyfree | msyfree.com"
+EOF
